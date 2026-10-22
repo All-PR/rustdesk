@@ -85,6 +85,11 @@ def main():
          f'pub const RS_PUB_KEY: &str = "{key}";', 1),
         ('pub static ref APP_NAME: RwLock<String> = RwLock::new("RustDesk".to_owned());',
          f'pub static ref APP_NAME: RwLock<String> = RwLock::new("{APP_NAME}".to_owned());', 1),
+        # Без этого программа считает, что работает через публичный сервер:
+        # показывает подсказку «настройте собственный сервер» и урезает
+        # качество/FPS, как для публичных серверов RustDesk.
+        ('pub static ref PROD_RENDEZVOUS_SERVER: RwLock<String> = RwLock::new("".to_owned());',
+         f'pub static ref PROD_RENDEZVOUS_SERVER: RwLock<String> = RwLock::new("{server}".to_owned());', 1),
     ])
 
     print("== colors, dark theme, window title")
@@ -123,6 +128,36 @@ def main():
          "            &crate::get_app_name(),",
          "            &crate::platform::FLUTTER_RUNNER_WIN32_WINDOW_CLASS,\n"
          f'            "{DISPLAY_NAME}",', 1),
+    ])
+    # Установщик ищет в папке установки {APP_NAME}.exe, а сборка кладёт
+    # туда rustdesk.exe. Обновление (update_me) уже переименовывает файл,
+    # а установка (install_me) — нет; добавляем то же переименование.
+    patch("src/platform/windows.rs", [
+        ('md \\"{path}\\"\n{copy_exe}\nreg add {subkey} /f\n',
+         'md \\"{path}\\"\n{copy_exe}\n{rename_exe}\nreg add {subkey} /f\n', 1),
+        ("        copy_exe = copy_exe_cmd(&src_exe, &exe, &path)?,\n"
+         "        import_config = get_import_config(&exe),",
+         "        copy_exe = copy_exe_cmd(&src_exe, &exe, &path)?,\n"
+         "        rename_exe = rename_exe_cmd(&src_exe, &path)?,\n"
+         "        import_config = get_import_config(&exe),", 1),
+    ])
+    # Главная надёжная защита: в самораспаковывающийся exe кладём копию
+    # rustdesk.exe под именем {APP_NAME}.exe и запускаем именно её. Тогда
+    # программа с первого запуска работает как {APP_NAME}.exe, и установщик
+    # находит файл с ожидаемым именем. rustdesk.exe остаётся рядом, потому
+    # что его ищет сборка MSI.
+    patch("libs/portable/generate.py", [
+        ("    folder = options.folder or './rustdesk'\n",
+         "    folder = options.folder or './rustdesk'\n"
+         "    _brand_src = os.path.join(folder, 'rustdesk.exe')\n"
+         f"    _brand_dst = os.path.join(folder, '{APP_NAME}.exe')\n"
+         "    if os.path.exists(_brand_src):\n"
+         "        import shutil\n"
+         "        shutil.copyfile(_brand_src, _brand_dst)\n"
+         f"        print('Branding: copied rustdesk.exe -> {APP_NAME}.exe')\n"
+         "    if options.executable and os.path.basename(options.executable).lower() == 'rustdesk.exe':\n"
+         f"        options.executable = os.path.join(os.path.dirname(options.executable), '{APP_NAME}.exe')\n",
+         1),
     ])
     patch("flutter/windows/runner/Runner.rc", [
         ('VALUE "FileDescription", "RustDesk Remote Desktop" "\\0"',
