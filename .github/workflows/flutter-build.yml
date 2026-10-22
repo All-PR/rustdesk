@@ -189,6 +189,22 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           submodules: recursive
+      - name: Patch custom server
+        shell: bash
+        env:
+          MY_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
+          MY_KEY: ${{ secrets.RS_PUB_KEY }}
+        run: |
+          f=libs/hbb_common/src/config.rs
+          if [ -z "$MY_SERVER" ] || [ -z "$MY_KEY" ]; then
+            echo "::error::Secrets RENDEZVOUS_SERVER or RS_PUB_KEY are empty"
+            exit 1
+          fi
+          sed -i "s|rs-ny\.rustdesk\.com|${MY_SERVER}|" "$f"
+          sed -i "s|OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=|${MY_KEY}|" "$f"
+          grep -qF "\"${MY_SERVER}\"" "$f" || { echo "::error::Server patch failed"; exit 1; }
+          grep -qF "\"${MY_KEY}\"" "$f" || { echo "::error::Key patch failed"; exit 1; }
+          echo "Custom server and key applied"
 
       - name: Restore bridge files
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -574,6 +590,22 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           submodules: recursive
+      - name: Patch custom server
+        shell: bash
+        env:
+          MY_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
+          MY_KEY: ${{ secrets.RS_PUB_KEY }}
+        run: |
+          f=libs/hbb_common/src/config.rs
+          if [ -z "$MY_SERVER" ] || [ -z "$MY_KEY" ]; then
+            echo "::error::Secrets RENDEZVOUS_SERVER or RS_PUB_KEY are empty"
+            exit 1
+          fi
+          sed -i "s|rs-ny\.rustdesk\.com|${MY_SERVER}|" "$f"
+          sed -i "s|OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=|${MY_KEY}|" "$f"
+          grep -qF "\"${MY_SERVER}\"" "$f" || { echo "::error::Server patch failed"; exit 1; }
+          grep -qF "\"${MY_KEY}\"" "$f" || { echo "::error::Key patch failed"; exit 1; }
+          echo "Custom server and key applied"
 
       - name: Install LLVM and Clang
         uses: rustdesk-org/install-llvm-action-32bit@6aa7d9ad3df84dff01cd4596dd0fc880a7f47fce # no release tag; commit 2026-05-26
