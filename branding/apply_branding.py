@@ -155,8 +155,11 @@ def main():
          "        import shutil\n"
          "        shutil.copyfile(_brand_src, _brand_dst)\n"
          f"        print('Branding: copied rustdesk.exe -> {APP_NAME}.exe')\n"
-         "    if options.executable and os.path.basename(options.executable).lower() == 'rustdesk.exe':\n"
-         f"        options.executable = os.path.join(os.path.dirname(options.executable), '{APP_NAME}.exe')\n",
+         # Только замена имени в строке: os.path.join на Windows вставил бы
+         # обратный слеш, и проверка «файл внутри папки» ниже не проходила.
+         "    _brand_exe = options.executable or ''\n"
+         "    if _brand_exe.replace('\\\\', '/').split('/')[-1].lower() == 'rustdesk.exe':\n"
+         f"        options.executable = _brand_exe[:-len('rustdesk.exe')] + '{APP_NAME}.exe'\n",
          1),
     ])
     patch("flutter/windows/runner/Runner.rc", [
